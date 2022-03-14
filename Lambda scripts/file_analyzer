@@ -1,0 +1,56 @@
+import json
+import boto3
+import csv
+import os
+import logging
+import logging.config
+import codecs
+from io import StringIO
+from botocore.exceptions import ClientError
+
+s3 = boto3.client('s3')
+
+class hit_rate_analysis:
+    
+    def __init__(self,bucket,key):
+        self.bucket=bucket
+        self.key=key
+        #self.delims=delims
+        
+    def hit_rate_s3(self,bucket,key):
+        file_obj=s3.get_object(Bucket=bucket,Key=key)
+        write_bucket_name='hitrateprocessed1'
+        write_key='hitrateprocessed1.tsv'
+        stream=codecs.getreader('utf-8')(file_obj['Body'])
+        lines = list(csv.DictReader(stream,delimiter="\t"))
+        csv_buffer = StringIO()
+        out = csv.DictWriter(csv_buffer,delimiter="\t",fieldnames=['ip','event_list','referrer','product_list'])
+        out.writeheader()
+        for row in lines:
+            print(type(row))
+            print(row)
+            print(row['product_list'])
+            if row['event_list']=='1' or row['event_list']=='':
+                out.writerow({'ip':row['ip'],'event_list':row['event_list'],'referrer':row['referrer'],'product_list':row['product_list']})
+                
+            
+        s3.put_object(
+                Bucket=write_bucket_name,
+                Key=write_key,
+                Body=csv_buffer.getvalue().encode('utf-8')
+        )        
+
+
+def lambda_handler(event,context):
+    # TODO implement
+     print(event)
+     bucket = event['Records'][0]['s3']['bucket']['name']
+     key = event['Records'][0]['s3']['object']['key']
+     print(f'bucket is {bucket} key is {key}')
+     response = s3.get_object(Bucket=bucket, Key=key)
+     print("CyoyoE: " + response['ContentType'])
+     print(response)
+     hit_rate=hit_rate_analysis(bucket,key)
+     hit_rate.hit_rate_s3(bucket,key)    
+          
+   
